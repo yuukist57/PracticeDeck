@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1b1815">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Practice Deck — 音楽分析プレイヤー</title>
+<style>
+  :root {
+    --bg: #1b1815;
+    --panel: #252019;
+    --panel-light: #332c24;
+    --accent: #e8923f;
+    --accent-dim: #a96f2e;
+    --cream: #ece4d8;
+    --muted: #93857a;
+    --line: #4a4038;
+    --loop: #6f9c8a;
+    --danger: #c0604a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at top, #2a241d 0%, var(--bg) 60%);
+    color: var(--cream);
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 24px 12px 60px;
+  }
+
+  .deck {
+    width: 100%;
+    max-width: 640px;
+  }
+
+  header {
+    margin-bottom: 18px;
+    padding: 0 4px;
+  }
+
+  header .eyebrow {
+    font-family: "Courier New", monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  header h1 {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-weight: 600;
+    font-size: 28px;
+    margin: 4px 0 6px;
+    letter-spacing: 0.01em;
+  }
+
+  header p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .panel {
+    background: linear-gradient(180deg, var(--panel-light), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.04) inset,
+      0 18px 40px -20px rgba(0,0,0,0.7);
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+
+  /* ---------- drop zone ---------- */
+  #dropzone {
+    border: 1px dashed var(--line);
+    border-radius: 6px;
+    padding: 48px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  #dropzone.dragover {
+    border-color: var(--accent);
+    background: rgba(232,146,63,0.06);
+  }
+  #dropzone .dz-title {
+    font-family: Georgia, serif;
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+  #dropzone .dz-sub {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  #fileInput { display: none; }
+
+  /* ---------- waveform ---------- */
+  #waveformWrap {
+    position: relative;
+    width: 100%;
+    height: 110px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #15120f;
+    border: 1px solid var(--line);
+  }
+  #waveform {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: pointer;
+  }
+
+  .filename {
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0 0 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ---------- transport ---------- */
+  .transport {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--panel-light);
+    color: var(--cream);
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.4) inset, 0 1px 0 rgba(255,255,255,0.05);
+    transition: background 0.1s;
+  }
+  .icon-btn:active { background: #1f1a15; }
+
+  #seek {
+    flex: 1;
+  }
+
+  .time {
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    min-width: 92px;
+    text-align: right;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: var(--line);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #1b1815;
+    cursor: pointer;
+    margin-top: -1px;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #1b1815;
+    cursor: pointer;
+  }
+
+  /* ---------- controls row ---------- */
+  .controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 18px;
+  }
+  @media (max-width: 480px) {
+    .controls-grid { grid-template-columns: 1fr; }
+  }
+
+  .control-group {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 12px 14px;
+    background: rgba(0,0,0,0.12);
+  }
+
+  .control-group .label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+
+  .control-group .label {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .control-group .value {
+    font-family: "Courier New", monospace;
+    font-size: 14px;
+    color: var(--accent);
+  }
+
+  .checkbox-row {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .checkbox-row input { accent-color: var(--accent); }
+
+  .loop-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  .loop-btn {
+    flex: 1;
+    padding: 8px 0;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: var(--panel-light);
+    color: var(--cream);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    font-family: "Courier New", monospace;
+  }
+  .loop-btn.active {
+    border-color: var(--loop);
+    color: var(--loop);
+    box-shadow: 0 0 0 1px var(--loop) inset;
+  }
+  .loop-status {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: "Courier New", monospace;
+    min-height: 14px;
+  }
+
+  /* ---------- tuner ---------- */
+  .tuner {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+  }
+  .gauge-wrap {
+    flex: none;
+    width: 200px;
+  }
+  .readout {
+    flex: 1;
+    min-width: 140px;
+  }
+  .readout .note-display {
+    font-family: Georgia, serif;
+    font-size: 48px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--cream);
+    letter-spacing: 0.02em;
+  }
+  .readout .note-display .octave {
+    font-size: 22px;
+    color: var(--muted);
+    vertical-align: super;
+    margin-left: 2px;
+  }
+  .readout .sub {
+    margin-top: 6px;
+    font-family: "Courier New", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    gap: 16px;
+  }
+  .readout .sub .cents.in-tune { color: var(--loop); }
+  .readout .sub .cents.sharp,
+  .readout .sub .cents.flat { color: var(--accent); }
+
+  .tuner-caption {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  #needle {
+    transition: transform 0.08s linear;
+  }
+  #needleGlow {
+    transition: stroke 0.15s, fill 0.15s;
+  }
+</style>
+</head>
+<body>
+<div class="deck">
+  <header>
+    <div class="eyebrow">Practice Deck</div>
+    <h1>音楽分析プレイヤー</h1>
+    <p>音源を読み込むと、波形・再生速度（音程保持）・リアルタイムの音名/周波数/セント表示、A-Bループ練習ができる。</p>
+  </header>
+
+  <div class="panel" id="dropPanel">
+    <div id="dropzone">
+      <div class="dz-title">音声ファイルをドロップ、またはクリックして選択</div>
+      <div class="dz-sub">mp3 / wav / m4a など、ブラウザが再生できる形式に対応</div>
+      <input type="file" id="fileInput" accept="audio/*">
+    </div>
+  </div>
+
+  <div class="panel" id="playerPanel" hidden>
+    <div class="filename" id="filenameLabel"></div>
+
+    <div id="waveformWrap">
+      <canvas id="waveform"></canvas>
+    </div>
+
+    <div class="transport">
+      <button class="icon-btn" id="playBtn" title="再生 / 一時停止">▶</button>
+      <input type="range" id="seek" min="0" max="1000" value="0" step="1">
+      <div class="time" id="timeLabel">0:00 / 0:00</div>
+    </div>
+
+    <div class="controls-grid">
+      <div class="control-group">
+        <div class="label-row">
+          <span class="label">再生速度</span>
+          <span class="value" id="speedVal">100%</span>
+        </div>
+        <input type="range" id="speedSlider" min="25" max="150" value="100" step="1">
+        <label class="checkbox-row">
+          <input type="checkbox" id="preservePitch" checked>
+          音程を保持したまま速度を変える
+        </label>
+      </div>
+
+      <div class="control-group">
+        <div class="label-row">
+          <span class="label">区間ループ</span>
+        </div>
+        <div class="loop-buttons">
+          <button class="loop-btn" id="setA">A点を設定</button>
+          <button class="loop-btn" id="setB">B点を設定</button>
+          <button class="loop-btn" id="clearLoop">解除</button>
+        </div>
+        <div class="loop-status" id="loopStatus">未設定（再生中にA点・B点を打てる）</div>
+      </div>
+    </div>
+
+    <div class="tuner">
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 200 120" width="100%">
+          <!-- arc -->
+          <path d="M 16 110 A 84 84 0 0 1 184 110" fill="none" stroke="#4a4038" stroke-width="2"/>
+          <!-- ticks -->
+          <g stroke="#4a4038" stroke-width="2">
+            <line x1="100" y1="26" x2="100" y2="16"/>
+            <line x1="46" y1="44" x2="40" y2="36"/>
+            <line x1="154" y1="44" x2="160" y2="36"/>
+            <line x1="20" y1="108" x2="12" y2="108"/>
+            <line x1="180" y1="108" x2="188" y2="108"/>
+          </g>
+          <text x="100" y="14" fill="#93857a" font-size="9" text-anchor="middle" font-family="Courier New, monospace">0</text>
+          <text x="30" y="34" fill="#93857a" font-size="9" text-anchor="middle" font-family="Courier New, monospace">-25</text>
+          <text x="170" y="34" fill="#93857a" font-size="9" text-anchor="middle" font-family="Courier New, monospace">+25</text>
+          <text x="14" y="112" fill="#93857a" font-size="9" text-anchor="end" font-family="Courier New, monospace">♭50</text>
+          <text x="186" y="112" fill="#93857a" font-size="9" text-anchor="start" font-family="Courier New, monospace">♯50</text>
+          <!-- needle -->
+          <g id="needle" transform="rotate(0 100 110)">
+            <line id="needleGlow" x1="100" y1="110" x2="100" y2="30" stroke="#93857a" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="100" cy="110" r="4" fill="#93857a"/>
+          </g>
+        </svg>
+      </div>
+      <div class="readout">
+        <div class="note-display"><span id="noteName">--</span><span class="octave" id="noteOctave"></span></div>
+        <div class="sub">
+          <span id="freqDisplay">-- Hz</span>
+          <span id="centsDisplay" class="cents">-- ¢</span>
+        </div>
+        <div class="tuner-caption">単音のメロディで安定して検出される。和音や伴奏が重なると音名表示が揺れることがある。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const dropPanel = document.getElementById('dropPanel');
+  const playerPanel = document.getElementById('playerPanel');
+  const filenameLabel = document.getElementById('filenameLabel');
+
+  const waveformCanvas = document.getElementById('waveform');
+  const waveformCtx = waveformCanvas.getContext('2d');
+
+  const playBtn = document.getElementById('playBtn');
+  const seek = document.getElementById('seek');
+  const timeLabel = document.getElementById('timeLabel');
+
+  const speedSlider = document.getElementById('speedSlider');
+  const speedVal = document.getElementById('speedVal');
+  const preservePitch = document.getElementById('preservePitch');
+
+  const setABtn = document.getElementById('setA');
+  const setBBtn = document.getElementById('setB');
+  const clearLoopBtn = document.getElementById('clearLoop');
+  const loopStatus = document.getElementById('loopStatus');
+
+  const needle = document.getElementById('needle');
+  const needleGlow = document.getElementById('needleGlow');
+  const noteName = document.getElementById('noteName');
+  const noteOctave = document.getElementById('noteOctave');
+  const freqDisplay = document.getElementById('freqDisplay');
+  const centsDisplay = document.getElementById('centsDisplay');
+
+  let audioCtx = null;
+  let analyser = null;
+  let sourceNode = null;
+  let audioBuffer = null;
+  let duration = 0;
+  let loopA = null;
+  let loopB = null;
+  let isSeeking = false;
+
+  const audio = new Audio();
+  audio.crossOrigin = 'anonymous';
+
+  // ---------- file loading ----------
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) loadFile(e.target.files[0]);
+  });
+
+  async function loadFile(file) {
+    filenameLabel.textContent = file.name;
+    const url = URL.createObjectURL(file);
+    audio.src = url;
+
+    // decode for waveform drawing
+    const arrayBuf = await file.arrayBuffer();
+    const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioBuffer = await tmpCtx.decodeAudioData(arrayBuf);
+    tmpCtx.close();
+
+    dropPanel.hidden = true;
+    playerPanel.hidden = false;
+    resizeCanvas();
+    drawWaveform();
+  }
+
+  // ---------- audio graph (created on first play) ----------
+  function ensureAudioGraph() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    sourceNode = audioCtx.createMediaElementSource(audio);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    sourceNode.connect(analyser);
+    analyser.connect(audioCtx.destination);
+  }
+
+  // ---------- waveform ----------
+  function resizeCanvas() {
+    const rect = waveformCanvas.parentElement.getBoundingClientRect();
+    waveformCanvas.width = rect.width;
+    waveformCanvas.height = rect.height;
+  }
+  window.addEventListener('resize', () => { resizeCanvas(); drawWaveform(); });
+
+  function drawWaveform() {
+    if (!audioBuffer) return;
+    const w = waveformCanvas.width;
+    const h = waveformCanvas.height;
+    waveformCtx.clearRect(0, 0, w, h);
+
+    // loop region
+    if (loopA !== null && loopB !== null && duration > 0) {
+      const xA = (loopA / duration) * w;
+      const xB = (loopB / duration) * w;
+      waveformCtx.fillStyle = 'rgba(111,156,138,0.22)';
+      waveformCtx.fillRect(xA, 0, xB - xA, h);
+    }
+
+    // waveform
+    const data = audioBuffer.getChannelData(0);
+    const step = Math.max(1, Math.floor(data.length / w));
+    const amp = h / 2;
+    waveformCtx.strokeStyle = '#cdbfae';
+    waveformCtx.lineWidth = 1;
+    waveformCtx.beginPath();
+    for (let i = 0; i < w; i++) {
+      let min = 1.0, max = -1.0;
+      const start = i * step;
+      for (let j = 0; j < step; j++) {
+        const idx = start + j;
+        if (idx >= data.length) break;
+        const v = data[idx];
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      waveformCtx.moveTo(i + 0.5, (1 + min) * amp);
+      waveformCtx.lineTo(i + 0.5, (1 + max) * amp);
+    }
+    waveformCtx.stroke();
+
+    // loop markers
+    if (loopA !== null && duration > 0) {
+      drawMarker((loopA / duration) * w, '#6f9c8a');
+    }
+    if (loopB !== null && duration > 0) {
+      drawMarker((loopB / duration) * w, '#6f9c8a');
+    }
+
+    // playhead
+    if (duration > 0) {
+      const x = (audio.currentTime / duration) * w;
+      waveformCtx.strokeStyle = '#e8923f';
+      waveformCtx.lineWidth = 2;
+      waveformCtx.beginPath();
+      waveformCtx.moveTo(x, 0);
+      waveformCtx.lineTo(x, h);
+      waveformCtx.stroke();
+    }
+  }
+
+  function drawMarker(x, color) {
+    waveformCtx.strokeStyle = color;
+    waveformCtx.lineWidth = 2;
+    waveformCtx.beginPath();
+    waveformCtx.moveTo(x, 0);
+    waveformCtx.lineTo(x, waveformCanvas.height);
+    waveformCtx.stroke();
+  }
+
+  waveformCanvas.addEventListener('click', (e) => {
+    if (!duration) return;
+    const rect = waveformCanvas.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    audio.currentTime = ratio * duration;
+  });
+
+  // ---------- transport ----------
+  audio.addEventListener('loadedmetadata', () => {
+    duration = audio.duration;
+    updateTimeLabel();
+  });
+
+  playBtn.addEventListener('click', async () => {
+    ensureAudioGraph();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    if (audio.paused) {
+      audio.play();
+      playBtn.textContent = '❚❚';
+      requestAnimationFrame(tick);
+    } else {
+      audio.pause();
+      playBtn.textContent = '▶';
+    }
+  });
+
+  audio.addEventListener('ended', () => {
+    playBtn.textContent = '▶';
+  });
+
+  seek.addEventListener('input', () => {
+    if (!duration) return;
+    isSeeking = true;
+    audio.currentTime = (seek.value / 1000) * duration;
+  });
+  seek.addEventListener('change', () => { isSeeking = false; });
+
+  function updateTimeLabel() {
+    timeLabel.textContent = `${formatTime(audio.currentTime)} / ${formatTime(duration)}`;
+  }
+  function formatTime(t) {
+    if (!isFinite(t)) return '0:00';
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  // ---------- speed control ----------
+  function applySpeed() {
+    const rate = speedSlider.value / 100;
+    audio.playbackRate = rate;
+    speedVal.textContent = `${speedSlider.value}%`;
+  }
+  speedSlider.addEventListener('input', applySpeed);
+
+  function applyPreservePitch() {
+    const val = preservePitch.checked;
+    audio.preservesPitch = val;
+    audio.mozPreservesPitch = val;
+    audio.webkitPreservesPitch = val;
+  }
+  preservePitch.addEventListener('change', applyPreservePitch);
+  applyPreservePitch();
+
+  // ---------- loop ----------
+  setABtn.addEventListener('click', () => {
+    loopA = audio.currentTime;
+    if (loopB !== null && loopA >= loopB) loopB = null;
+    setABtn.classList.add('active');
+    updateLoopStatus();
+    drawWaveform();
+  });
+  setBBtn.addEventListener('click', () => {
+    loopB = audio.currentTime;
+    if (loopA !== null && loopB <= loopA) loopA = null;
+    setBBtn.classList.add('active');
+    updateLoopStatus();
+    drawWaveform();
+  });
+  clearLoopBtn.addEventListener('click', () => {
+    loopA = null;
+    loopB = null;
+    setABtn.classList.remove('active');
+    setBBtn.classList.remove('active');
+    updateLoopStatus();
+    drawWaveform();
+  });
+  function updateLoopStatus() {
+    if (loopA !== null && loopB !== null) {
+      loopStatus.textContent = `${formatTime(loopA)} 〜 ${formatTime(loopB)} をループ中`;
+    } else if (loopA !== null) {
+      loopStatus.textContent = `A点: ${formatTime(loopA)}（B点を設定するとループ開始）`;
+    } else if (loopB !== null) {
+      loopStatus.textContent = `B点: ${formatTime(loopB)}（A点を設定するとループ開始）`;
+    } else {
+      loopStatus.textContent = '未設定（再生中にA点・B点を打てる）';
+    }
+  }
+
+  // ---------- pitch detection ----------
+  const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const pitchBuf = new Float32Array(2048);
+  let frameCounter = 0;
+
+  function detectPitch() {
+    analyser.getFloatTimeDomainData(pitchBuf);
+    const sampleRate = audioCtx.sampleRate;
+
+    let rms = 0;
+    for (let i = 0; i < pitchBuf.length; i++) rms += pitchBuf[i] * pitchBuf[i];
+    rms = Math.sqrt(rms / pitchBuf.length);
+    if (rms < 0.01) return null;
+
+    const minLag = Math.floor(sampleRate / 1400); // 高い方の上限
+    const maxLag = Math.floor(sampleRate / 60);    // 低い方の上限
+
+    let bestLag = -1;
+    let bestCorr = -Infinity;
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      let corr = 0;
+      const len = pitchBuf.length - lag;
+      for (let i = 0; i < len; i++) {
+        corr += pitchBuf[i] * pitchBuf[i + lag];
+      }
+      corr = corr / len;
+      if (corr > bestCorr) {
+        bestCorr = corr;
+        bestLag = lag;
+      }
+    }
+    if (bestLag <= minLag || bestCorr / (rms * rms) < 0.35) return null;
+
+    // 放物線補間で精度を上げる
+    const corrAt = (lag) => {
+      let c = 0;
+      const len = pitchBuf.length - lag;
+      for (let i = 0; i < len; i++) c += pitchBuf[i] * pitchBuf[i + lag];
+      return c / len;
+    };
+    const c0 = corrAt(bestLag - 1);
+    const c1 = bestCorr;
+    const c2 = corrAt(bestLag + 1);
+    const denom = (c0 - 2 * c1 + c2);
+    let shift = 0;
+    if (denom !== 0) shift = 0.5 * (c0 - c2) / denom;
+    const refinedLag = bestLag + shift;
+
+    return sampleRate / refinedLag;
+  }
+
+  function freqToNoteInfo(freq) {
+    const noteNum = 12 * Math.log2(freq / 440) + 69;
+    const rounded = Math.round(noteNum);
+    const cents = Math.round((noteNum - rounded) * 100);
+    const name = noteNames[((rounded % 12) + 12) % 12];
+    const octave = Math.floor(rounded / 12) - 1;
+    return { name, octave, cents, freq };
+  }
+
+  function updateTuner(freq) {
+    if (freq === null || freq <= 0) {
+      noteName.textContent = '--';
+      noteOctave.textContent = '';
+      freqDisplay.textContent = '-- Hz';
+      centsDisplay.textContent = '-- ¢';
+      centsDisplay.className = 'cents';
+      needle.setAttribute('transform', 'rotate(0 100 110)');
+      needleGlow.setAttribute('stroke', '#93857a');
+      return;
+    }
+    const info = freqToNoteInfo(freq);
+    noteName.textContent = info.name;
+    noteOctave.textContent = info.octave;
+    freqDisplay.textContent = `${freq.toFixed(1)} Hz`;
+    const sign = info.cents > 0 ? '+' : '';
+    centsDisplay.textContent = `${sign}${info.cents} ¢`;
+
+    let color = '#e8923f';
+    if (Math.abs(info.cents) <= 5) {
+      centsDisplay.className = 'cents in-tune';
+      color = '#6f9c8a';
+    } else {
+      centsDisplay.className = info.cents > 0 ? 'cents sharp' : 'cents flat';
+      color = '#e8923f';
+    }
+    needleGlow.setAttribute('stroke', color);
+
+    const clamped = Math.max(-50, Math.min(50, info.cents));
+    const angle = clamped * 0.9; // ±50¢ -> ±45deg
+    needle.setAttribute('transform', `rotate(${angle} 100 110)`);
+  }
+
+  // ---------- main loop ----------
+  function tick() {
+    if (!audio.paused) {
+      // loop handling
+      if (loopA !== null && loopB !== null) {
+        if (audio.currentTime >= loopB) {
+          audio.currentTime = loopA;
+        }
+      }
+
+      if (!isSeeking) {
+        seek.value = duration ? (audio.currentTime / duration) * 1000 : 0;
+        updateTimeLabel();
+      }
+      drawWaveform();
+
+      frameCounter++;
+      if (frameCounter % 3 === 0 && analyser) {
+        const freq = detectPitch();
+        updateTuner(freq);
+      }
+
+      requestAnimationFrame(tick);
+    } else {
+      drawWaveform();
+    }
+  }
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

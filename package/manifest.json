@@ -1,0 +1,25 @@
+{
+  "name": "Practice Deck — 音楽分析プレイヤー",
+  "short_name": "Practice Deck",
+  "description": "音源の再生速度調整(音程保持)・ピッチ表示・A-Bループ練習ができる音楽分析プレイヤー",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1b1815",
+  "theme_color": "#1b1815",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
